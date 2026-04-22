@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-NexumcmsApplication<nexumcms>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "de.anatoli.nexumcms.NexumcmsApplication",
+            "projectName": "nexumcms",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

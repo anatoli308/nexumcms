@@ -1,0 +1,26 @@
+{
+  "name": "nexumcms",
+  "version": "1.0.0",
+  "description": "> Next Enterprise Experience & Unified Management Platform\r > NEXUM ist damit eine Content Experience & Delivery Platform",
+  "homepage": "https://github.com/anatoli308/nexumcms#readme",
+  "bugs": {
+    "url": "https://github.com/anatoli308/nexumcms/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anatoli308/nexumcms.git"
+  },
+  "license": "ISC",
+  "author": "Anatoli Reznik",
+  "scripts": {
+    "watch": "SET NODE_OPTIONS=--openssl-legacy-provider && webpack --watch -d --output ./target/classes/static/built/bundle.js"
+  },
+  "dependencies": {
+    "@babel/preset-env": "^7.29.2",
+    "@babel/preset-react": "^7.28.5",
+    "babel-loader": "^10.1.1",
+    "react": "^19.2.5",
+    "react-router-dom": "^7.14.2",
+    "webpack-cli": "^7.0.2"
+  }
+}
