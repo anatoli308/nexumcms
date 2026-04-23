@@ -1,4 +1,6 @@
 {
-    "java.compile.nullAnalysis.mode": "automatic",
-    "java.configuration.updateBuildConfiguration": "automatic"
+	"[java]": {
+		"editor.defaultFormatter": "redhat.java"
+	},
+	"java.format.enabled": true
 }
