@@ -1,10 +1,10 @@
 import React from 'react';
+import { Box } from '@mui/material';
 
 export default function Dashboard() {
     return (
-        <div>
-            <h1>Dashboard</h1>
-            <p>This is the dashboard page of the NexusCMS application.</p>
-        </div>
+        <Box>
+            faweqweqweqweqw
+        </Box>
     );
 }
