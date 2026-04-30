@@ -2,130 +2,252 @@
 
 Apply these instructions to all changes in this repository.
 
-## Project Context
+## 1. Project Architecture Snapshot
 
-- Backend: Spring Boot 4, Java 26, Spring MVC, Spring Security, Spring Data JPA, Thymeleaf.
-- Frontend: React with webpack under `src/main/react`.
-- Frontend UI library: Material UI (MUI).
-- Goal: prefer small, maintainable changes that keep backend, frontend, and infrastructure concerns separated.
-- Follow the existing project structure and conventions for code style, architecture, and dependencies.
-- Do not introduce new architectural patterns, libraries, or frameworks unless the task explicitly requires it.
-- For UI changes, prefer using MUI components and theming to maintain a consistent look and feel.
-- For backend changes, keep controllers thin and put business logic in service classes, following the existing patterns.
-- For any change, preserve existing public APIs and file structure unless the task explicitly requires a change.
-- Do not add tests unless the user explicitly asks for them, but mention when a change would.
+- Backend stack: Spring Boot 4, Java 26, Spring MVC, Spring Security, Spring Data JPA, Thymeleaf.
+- Frontend stack: React with webpack under src/main/react.
+- UI stack: Material UI (MUI).
+- Build pipeline: Gradle builds backend and frontend bundle together.
+- Product direction: enterprise CMS with API-first, workflow-driven architecture.
 
-## Core Engineering Principles
+Keep this boundary explicit:
 
-- Follow clean code over clever code.
-- Prefer KISS, DRY, and YAGNI.
-- Keep code readable, explicit, and easy to change.
-- Use descriptive names for classes, methods, variables, and fields.
-- Keep methods short and focused on one responsibility.
-- Avoid deep nesting; prefer guard clauses and early returns.
-- Avoid magic numbers and hardcoded values when a named constant or configuration is clearer.
-- Minimize side effects and mutable shared state.
-- Refactor only when it directly supports the requested change. Do not do broad cleanup unless asked.
+- backend domain/application logic in Java/Spring layers
+- frontend UI logic in React/MUI
+- no mixing of business rules into controllers, templates, or JSX render code
 
-## Architecture And Separation Of Concerns
+## 2. Non-Negotiable Engineering Principles
 
-- Keep controllers thin. Controllers should handle HTTP concerns, delegate work, and return views or responses.
-- Put business rules in service classes, not in controllers, repositories, templates, or React render code.
-- Keep repositories focused on persistence and query concerns only.
-- Keep configuration in dedicated configuration classes or config files.
-- Do not mix frontend rendering concerns with backend business logic.
-- Do not place database logic in controllers.
-- Do not place security decisions inline across random classes; keep them centralized and explicit.
+- Clean code over clever code.
+- KISS first, DRY where repetition is real, YAGNI always.
+- Separation of concerns where it improves clarity and maintainability.
+- Avoid cross-concern leakage between layers (business, security, transactions, validation, mapping, logging).
+- Preserve ACID and data integrity for persistence changes.
+- Smallest change that fully solves the user request.
+- Preserve existing public APIs and structure unless change is explicitly required.
 
-## Dependency Injection
+## 3. Clean Code Standards
 
-- Prefer constructor injection everywhere.
+- Use descriptive, domain-meaningful names.
+- Keep methods focused on one responsibility.
+- Prefer high cohesion and low coupling.
+- Prefer guard clauses and early returns over deep nesting.
+- Avoid magic numbers and unclear hardcoded values.
+- Minimize mutable shared state and hidden side effects.
+- Handle errors explicitly; never swallow exceptions.
+- Refactor only when it supports the requested change.
+
+### 3.1 SOLID (Where It Adds Value)
+
+- SRP: one reason to change per class/module.
+- OCP: extend behavior with clear boundaries, avoid risky rewrites.
+- LSP: derived implementations must preserve contract behavior.
+- ISP: prefer smaller focused contracts over large catch-all interfaces.
+- DIP: depend on abstractions at clear architectural seams.
+
+## 4. Spring Boot Architecture Rules
+
+### 4.1 Layer Responsibilities
+
+- Controllers: HTTP mapping, request parsing, validation trigger, response mapping only.
+- Services: business rules, orchestration, transaction ownership.
+- Repositories: persistence and query concerns only.
+- Entities: persistence model only, not transport contracts.
+- DTOs/records: API and boundary contracts.
+
+### 4.2 Dependency Injection
+
+- Use constructor injection for Spring-managed classes.
 - Do not use field injection.
-- Depend on abstractions or clear service boundaries where it improves maintainability.
 - Keep dependencies explicit and minimal.
-- If a class needs too many dependencies, treat it as a design smell and simplify the class.
-- spring beans should be injected via constructor injection, and avoid using `@Autowired` on fields or setters. Instead, use constructor parameters to declare dependencies clearly and allow for easier testing and maintenance.
+- Avoid manual new for Spring collaborators.
+- If a class needs many collaborators, treat it as a design smell and simplify.
 
-## Java And Spring Boot Guidelines
+### 4.3 Transactions, ACID, and Consistency
 
-- Prefer immutable fields and `final` where practical.
-- Use records for simple DTO-style data carriers when they fit the existing code style.
-- Keep transaction boundaries explicit and usually inside the service layer.
-- Preserve ACID-related behavior when changing persistence code; do not scatter write logic across layers.
-- Validate inputs at the application boundary.
-- Handle exceptions deliberately. Do not swallow errors silently.
-- Avoid broad `catch (Exception)` unless there is a clear boundary-level reason.
-- Keep entities, DTOs, services, repositories, and controllers in clearly separated roles.
-- Favor Spring Boot conventions over custom framework-like abstractions.
-- For new features, follow the existing patterns for API design, service structure, and data handling unless the task explicitly requires a new approach.
-- when modifying existing backend code, maintain the existing style and structure unless the task explicitly requires a change, and ensure that any new code integrates smoothly with the existing architecture.
-- when handling data persistence, follow the existing patterns for repositories and service layer interactions, and ensure that transaction management is consistent with the existing codebase.
-- when implementing new features or modifying existing ones, consider the impact on security and ensure that any necessary authentication and authorization checks are in place, following the existing security patterns in the codebase.
+- Keep transaction boundaries in the service layer.
+- Use @Transactional(readOnly = true) for read-only flows where appropriate.
+- Model each write use case as a clear atomic business operation.
+- Do not scatter related writes across unrelated transaction scopes.
+- Avoid long-running remote calls inside write transactions.
+- If eventual consistency is used, document it explicitly.
 
-## Frontend Guidelines
+### 4.4 Validation, Error Handling, and Security
 
-- Keep React components focused and composable.
-- Separate presentation, routing, and data-fetching concerns.
-- Do not put large business logic blocks inside JSX.
-- Reuse components when repetition is real, not speculative.
-- Use MUI components, theming, and layout primitives as the default frontend foundation.
-- Prefer a shared MUI theme and design tokens over ad hoc inline styling.
-- Do not mix multiple UI component libraries unless the task explicitly requires it.
-- Keep styling consistent with MUI best practices and the existing theme structure.
-- Follow the existing project structure and avoid introducing a second UI architecture.
-- https://mui.com/material-ui/all-components/ mui components documentation for reference.
-- always prefer MUI components and theming over custom CSS or inline styles when the task involves UI changes.
-- always use compact, focused React components that follow the existing project structure and conventions.
-- prefer functional components and hooks over class components, unless the existing code style strongly favors classes in that area.
-- for state management, prefer local component state and React Context for shared state, rather than introducing a new state management library unless the task explicitly requires it.
-- keep side effects and data fetching logic in custom hooks or dedicated service modules, rather than directly in component render code.
-- follow the existing patterns for API calls and data handling in the frontend, and do not introduce new patterns unless the task explicitly requires it.
-- ensure that any new UI elements are responsive and accessible, following MUI best practices and the existing design system.
-- when modifying existing UI components, maintain the existing look and feel unless the task explicitly requires a redesign.
-- for long tasks use webworkers or backend processing to keep the UI responsive, rather than blocking the main thread with heavy computations.
-- when in doubt about a UI change, prefer a simpler, more maintainable solution that fits the existing design over a complex solution that may be more visually appealing but harder to maintain.
-- when making changes to the frontend, consider the impact on the user experience and try to maintain a consistent and intuitive interface throughout the application.
+- Validate input at system boundaries (DTOs/commands).
+- Prefer centralized exception handling (for example @ControllerAdvice).
+- Avoid broad catch (Exception) unless at a clear boundary.
+- Keep authorization checks explicit and aligned with existing SecurityFilterChain patterns.
+- Never hardcode secrets; use environment/config.
 
-## Dependency And Version Policy
+### 4.5 Cross-Cutting Concerns (No Cross-Concern Coupling)
 
-- Prefer current stable package versions that are compatible with the existing stack.
-- When adding or upgrading dependencies, verify peer dependency and build compatibility first.
-- Prefer well-maintained libraries over custom utility code when the dependency is justified.
-- Do not add duplicate libraries for capabilities already covered by Spring Boot, React, or MUI.
-- Avoid legacy or deprecated APIs when a current stable alternative exists.
-- For Java, prefer using the latest LTS version (see build.gradle or pom.xml) unless the task explicitly requires a different version.
-- For Spring Boot, prefer using the latest stable release (see build.gradle or pom.xml) unless the task explicitly requires a different version.
-- For React, prefer using the latest stable release (see package.json) unless the task explicitly requires a different version.
-- For MUI, prefer using the latest stable release (see package.json) unless the task explicitly requires a different version.
+- Keep business logic in services, not in filters, security config, mappers, or exception handlers.
+- Keep transaction annotations and transactional ownership in service layer methods.
+- Keep validation at boundaries and domain invariants in domain/application logic.
+- Keep logging structured and contextual at boundaries; avoid noisy log spam.
+- Keep object mapping centralized (mapper/helpers), not duplicated across controllers and services.
+- Keep security rules centralized and consistent; do not copy ad hoc checks across endpoints.
 
-## Change Scope
+## 5. React + MUI Rules
 
-- Make the smallest change that fully solves the task.
-- Preserve existing public APIs, file structure, and conventions unless the task requires a change.
-- Do not introduce new libraries unless they are clearly justified.
-- Do not rewrite working code just to match personal preference.
-- Update configuration and documentation when behavior changes.
-- For UI changes, maintain the existing look and feel unless the task explicitly requires a redesign.
-- For backend changes, keep controllers thin and put business logic in service classes, following the existing patterns.
-- For any change, preserve existing public APIs and file structure unless the task explicitly requires a change.
-- Do not add tests unless the user explicitly asks for them, but mention when a change would.
+### 5.1 MUI-First UI Development
 
-## Code Review Expectations
+- Use MUI components, theme, and layout primitives by default.
+- Prefer theme tokens over ad hoc inline color/spacing values in new code.
+- Do not introduce a second UI component library unless explicitly requested.
+- Keep look and feel consistent with existing MUI patterns.
 
-- Look for root-cause fixes, not superficial patches.
-- Prefer explicitness over hidden behavior.
-- During review, call out duplication when removing it would materially improve maintainability.
-- Call out risky assumptions, missing configuration, hidden coupling, and unclear ownership.
+### 5.2 Component and State Practices
 
-## Testing Policy For This Repository
+- Prefer functional components and hooks.
+- Keep components small, focused, and composable.
+- Separate presentation from data loading and side effects.
+- Keep heavy business logic out of JSX.
+- Ensure responsive behavior across breakpoints and accessible interactions.
 
-- Do not write unit tests, integration tests, or end-to-end tests unless the user explicitly asks for them.
-- Do not proactively add or modify test files.
-- If a change would normally justify tests, mention that briefly in the final response, but do not create them.
+### 5.3 Frontend/Backend Boundary
 
-## Preferred Working Style
+- Keep API calls and side effects in dedicated hooks/services.
+- Do not place backend business rules in React components.
+- Keep server template concerns separate from SPA component logic.
 
-- Read the nearby code before editing.
-- Match the repository's existing coding style.
+### 5.4 Frontend Cross-Cutting Discipline
+
+- Keep UI components presentation-focused; no hidden data orchestration in presentational components.
+- Keep request state handling (loading/error/retry) in hooks/services, not repeated per component.
+- Keep design tokens and component variants in theme/config, not scattered inline.
+- Keep accessibility concerns explicit (labels, keyboard flows, focus behavior).
+
+Reference: https://mui.com/material-ui/all-components/
+
+## 6. Dependency and Version Policy (Latest Stable)
+
+- Prefer latest stable GA versions compatible with the stack.
+- No alpha/beta/RC dependencies unless explicitly requested.
+- Validate compatibility before upgrades:
+  - Spring Boot BOM alignment
+  - Java toolchain compatibility
+  - React/MUI peer dependencies
+  - webpack/node build compatibility
+- Favor maintained libraries over custom utility code when justified.
+- Do not add duplicate libraries for existing capabilities.
+
+## 7. Always-Best-Practice Defaults
+
+- Prefer official Spring and MUI documentation patterns over ad hoc patterns.
+- Prefer framework-native solutions before introducing custom infrastructure.
+- Avoid deprecated APIs in new code.
+- Keep observability and operability in mind for backend changes (logs/metrics/error context).
+- Prefer explicit contracts and predictable behavior over implicit magic.
+
+## 8. Change Scope and Delivery
+
 - Keep diffs focused and reviewable.
-- Favor maintainable solutions over premature optimization.
+- Do not rewrite working code for preference-only reasons.
+- Update documentation/config only when behavior changes.
+- Do not add tests unless explicitly requested.
+- If tests would normally be required, mention this briefly in the final summary.
+
+## 9. Quick Quality Checklist
+
+Before finalizing, verify:
+
+- controller remains thin and delegates to service
+- business rules stay in service layer
+- transaction boundary and consistency are explicit
+- dependencies are injected via constructor
+- no cross-concern leakage across layers
+- new UI follows MUI theme and responsive patterns
+- dependency changes follow latest stable and compatibility rules
+
+
+
+
+## Important Developer Rules
+1. **Export only public APIs**: When creating new classes, only export the main class or function used by other modules. Helper functions should remain internal and private.
+2. **Private method naming**: Internal private methods should be prefixed with an underscore `_` to indicate they are not part of the public API.
+3. **Code consistency**: Follow existing code style and conventions for consistency across the project.
+4. **Event-driven architecture**: Prefer EventEmitter-based communication over direct coupling where appropriate.
+5. **Dependency Injection**: Use constructor injection for agent dependencies (see SessionContext pattern).
+6. **State Machine readiness**: Agents maintain simple state flags (`idle`, `executing`, `completed`) to prepare for future State Machine implementation where needed.
+7. **Single Responsibility**: Each agent should have one clear responsibility (Planner, Scheduler, Executor, Critic, etc). Avoid mixing concerns.
+8. **MUI components**: For any new UI components, use Material-UI (MUI) and follow the existing design system for consistency.
+9. **@/ alias**: Use the `@/` alias for imports from the `src/` directory to maintain clean and consistent import paths. In `jsconfig.json` you configure this alias. In the backend, use relative imports within the `src/` directory.
+10. **setTimeout/setInterval**: Avoid using `setTimeout` or `setInterval` for timing or scheduling. Instead, use event-driven approaches or a proper way to handle asynchronous operations. NEVER USE THAT ideally.
+11. **Latest MUI**: Always use the latest version of Material-UI (MUI) for all UI components to ensure consistency and access to the latest features and improvements. Never use deprecated attributes or components from older versions of MUI.
+12. **NO .md files for documentation**: Don't create any when not told. All documentation should be maintained in Notion. Do not create or update `.md` files in the repository for documentation purposes.
+13. **Don't write test files**: For now, we are not writing test files. Focus on implementing the core functionality and architecture. Testing will be added in a later phase.
+14. **Don't create usage examples**: Do not create or update usage example files. Focus on the core implementation. Usage examples will be added in a later phase.
+15. **No smileys in code**: Avoid using smileys or emojis in code comments or commit messages to maintain a professional tone.
+16. **Don't create unnecessary files**: Only create files that are necessary for the implementation of the required features. Avoid creating placeholder or unnecessary files.
+17. **No await imports**: Avoid using dynamic `import()` statements with `await`. All imports should be static at the top of the file to ensure clarity and maintainability.
+18. **No virtual modules**: Do not create virtual modules or files that do not have a clear purpose in the project structure. All files should have a defined role and be part of the overall architecture.
+19. **Always use index in loop keys**: When rendering lists in React, always use the index as the key if there is no unique identifier available. This helps React optimize rendering and maintain performance.
+
+
+## Clean Code Standards
+
+Follow these fundamental principles for maintainable, scalable code:
+
+### Follow the SOLID Principles
+- **Single Responsibility Principle (SRP)**: Each class/function should have one, and only one, reason to change. One responsibility per module.
+- **Open/Closed Principle (OCP)**: Software entities should be open for extension, but closed for modification. Use composition and dependency injection.
+- **Liskov Substitution Principle (LSP)**: Subtypes must be substitutable for their base types without altering program correctness.
+- **Interface Segregation Principle (ISP)**: No client should be forced to depend on methods it does not use. Create focused, specific interfaces.
+- **Dependency Inversion Principle (DIP)**: Depend on abstractions, not concretions. High-level modules should not depend on low-level modules.
+
+### Core Coding Standards
+- **Small Functions**: Keep functions short (ideally < 20 lines). One level of abstraction per function.
+- **No Side Effects**: Functions should be pure where possible. If side effects are necessary, make them explicit and documented.
+- **DRY (Don't Repeat Yourself)**: Eliminate code duplication through abstraction and reuse.
+- **Clear Abstractions**: Use meaningful names. Code should read like prose. Avoid clever tricks.
+- **Separation of Concerns**: Different concerns should be in different modules. UI ≠ Business Logic ≠ Data Access.
+- **YAGNI (You Aren't Gonna Need It)**: Don't implement features until they are necessary.
+- **KISS (Keep It Simple, Stupid)**: Simplicity is key. Avoid over-engineering.
+- **Meaningful Comments**: Comment why, not what. Code should be self-explanatory; use comments for rationale and context.
+- **Consistent Formatting**: Follow established code style (indentation, spacing, naming conventions) for readability.
+- **Error Handling**: Handle errors gracefully. Use try/catch where appropriate and provide meaningful error messages.
+- **Service abstraction**: Separate external service calls (e.g., LLM providers) behind interfaces or adapters.
+- **Control Flow Clarity**: Avoid deeply nested code if possible. Use early returns to reduce complexity.
+- **Event-Driven Communication**: Use events for decoupled communication between modules, especially in agent interactions. Always prefer EventEmitter over direct method calls for inter-agent communication.
+
+
+### Practical Application in EDIFACTS
+```js
+// ❌ BAD: Multiple responsibilities, side effects, unclear
+class Agent {
+  async execute(msg, socket) {
+    const result = await llm.call(msg);
+    socket.emit('result', result);
+    db.save(result);
+    return result;
+  }
+}
+
+// ✅ GOOD: Single responsibility, dependency injection, no side effects
+class Planner extends EventEmitter {
+  constructor(config) {
+    super();
+    this.config = config;
+  }
+  
+  async invoke({ userMessage, provider }) {
+    this.emit('agent_planner:started', { goal: userMessage });
+    const plan = await this._decompose(userMessage, provider);
+    this.emit('agent_planner:completed', plan);
+    return plan;
+  }
+  
+  reset() {
+    // Clear state
+  }
+}
+```
+
+**Key Takeaways:**
+- ✅ Each agent has ONE job (SRP)
+- ✅ Events instead of direct coupling (OCP)
+- ✅ Dependency Injection via constructor (DIP)
+- ✅ Pure functions where possible (no side effects)
+- ✅ SessionContext separates lifecycle from logic (Separation of Concerns)

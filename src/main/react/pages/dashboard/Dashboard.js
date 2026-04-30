@@ -3,212 +3,300 @@ import {
     AppBar,
     Box,
     Button,
+    Chip,
     Divider,
     Drawer,
+    FormControl,
+    IconButton,
     InputBase,
     List,
     ListItem,
     ListItemButton,
+    MenuItem,
     Paper,
+    Select,
     Stack,
     Toolbar,
+    Tooltip,
     Typography,
-    useMediaQuery
+    useMediaQuery,
+    useTheme
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { alpha } from '@mui/material/styles';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 
+import Iconify from '../../components/utils/Iconify';
+import { useThemeSettings } from '../../theme/ThemeSettingsContext';
 import {
-    brandLogoSrc,
-    brandMarkSrc,
-    drawerWidth,
-    moduleHighlights,
-    navigationItems,
-    nextBackendSlice,
-    recentEvents,
-    sectionDescriptions,
-    sectionViews,
-    topbarHeight
+    dashboardBrand,
+    dashboardDrawerWidth,
+    dashboardNavigation,
+    dashboardQuickActions,
+    dashboardRecentActivity,
+    dashboardSectionMeta,
+    dashboardStats,
+    dashboardTopActions,
+    dashboardTopbarHeight,
+    dashboardViewsBySection
 } from './dashboardConfig';
-import {
-    ActionRow,
-    DetailField,
-    MenuToggleButton,
-    MetricBox,
-    NavGlyph,
-    UtilityButton
-} from './DashboardParts';
+
+function toViewSlug(viewLabel) {
+    return viewLabel
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-');
+}
+
+function buildSectionPath(sectionKey, viewLabel) {
+    if (!viewLabel) {
+        return `/backend/${sectionKey}`;
+    }
+
+    return `/backend/${sectionKey}/${toViewSlug(viewLabel)}`;
+}
+
+function StarterCard({ title, children, action }) {
+    return (
+        <Paper sx={{ p: 3, borderColor: 'divider', bgcolor: 'background.paper' }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+                <Typography variant="h6">{title}</Typography>
+                {action}
+            </Stack>
+            <Box sx={{ mt: 2 }}>{children}</Box>
+        </Paper>
+    );
+}
 
 export default function Dashboard() {
     const theme = useTheme();
-    const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+    const isDesktop = useMediaQuery((muiTheme) => muiTheme.breakpoints.up('md'));
+    const navigate = useNavigate();
+    const { section, view } = useParams();
+
+    const { mode, preset, presetOptions, setPreset, toggleMode } = useThemeSettings();
+
+    const isKnownSection = dashboardNavigation.some((item) => item.key === section);
+    const activeSection = isKnownSection ? section : dashboardNavigation[0].key;
+    const activeViews = dashboardViewsBySection[activeSection] ?? [];
+    const defaultView = activeViews[0] ?? '';
+    const activeViewBySlug = React.useMemo(
+        () =>
+            activeViews.reduce((acc, label) => {
+                acc[toViewSlug(label)] = label;
+                return acc;
+            }, {}),
+        [activeViews]
+    );
+    const isKnownView = Boolean(view && activeViewBySlug[view]);
+    const activeView = isKnownView ? activeViewBySlug[view] : defaultView;
+
     const [mobileOpen, setMobileOpen] = React.useState(false);
-    const [activeSection, setActiveSection] = React.useState('dashboard');
-    const [activeView, setActiveView] = React.useState(sectionViews.dashboard[0]);
-    const menuButtonRef = React.useRef(null);
-    const focusTimeoutRef = React.useRef(null);
+    const [searchQuery, setSearchQuery] = React.useState('');
+    const [logoLoadFailed, setLogoLoadFailed] = React.useState(false);
+    const [markLoadFailed, setMarkLoadFailed] = React.useState(false);
+
+    const isDarkMode = mode === 'dark';
+    const brandLogoSrc = isDarkMode ? dashboardBrand.logoSrcDark : dashboardBrand.logoSrcLight;
+    const brandMarkSrc = isDarkMode ? dashboardBrand.markSrcDark : dashboardBrand.markSrcLight;
 
     React.useEffect(() => {
-        return () => {
-            if (focusTimeoutRef.current !== null) {
-                window.clearTimeout(focusTimeoutRef.current);
-            }
-        };
-    }, []);
+        setLogoLoadFailed(false);
+        setMarkLoadFailed(false);
+    }, [brandLogoSrc, brandMarkSrc]);
 
-    const selectedItem = navigationItems.find((item) => item.key === activeSection) ?? navigationItems[0];
-    const selectedViews = sectionViews[activeSection] ?? [];
-
-    const handleDrawerToggle = () => {
-        setMobileOpen((open) => !open);
-    };
-
-    const closeDrawerAndRestoreFocus = () => {
-        setMobileOpen(false);
-
-        if (focusTimeoutRef.current !== null) {
-            window.clearTimeout(focusTimeoutRef.current);
+    React.useEffect(() => {
+        if (section && !isKnownSection) {
+            navigate(buildSectionPath('dashboard', dashboardViewsBySection.dashboard?.[0] ?? ''), { replace: true });
+            return;
         }
 
-        focusTimeoutRef.current = window.setTimeout(() => {
-            menuButtonRef.current?.focus();
-        }, 150);
+        if (!activeViews.length) {
+            return;
+        }
+
+        if (!view || !isKnownView) {
+            navigate(buildSectionPath(activeSection, defaultView), { replace: true });
+        }
+    }, [section, view, isKnownSection, activeSection, activeViews.length, isKnownView, defaultView, navigate]);
+
+    const activeItem = dashboardNavigation.find((item) => item.key === activeSection) ?? dashboardNavigation[0];
+    const activeMeta = dashboardSectionMeta[activeSection] ?? dashboardSectionMeta.dashboard;
+
+    const handleDrawerToggle = () => {
+        setMobileOpen((prevState) => !prevState);
     };
 
-    const handleSectionSelect = (sectionKey) => {
-        const nextViews = sectionViews[sectionKey] ?? [];
-
-        setActiveSection(sectionKey);
-        setActiveView(nextViews[0] ?? activeView);
-
+    const handleSectionLinkClick = () => {
         if (!isDesktop) {
-            closeDrawerAndRestoreFocus();
+            setMobileOpen(false);
         }
     };
 
     const handleViewSelect = (view) => {
-        setActiveView(view);
+        navigate(buildSectionPath(activeSection, view));
 
         if (!isDesktop) {
-            closeDrawerAndRestoreFocus();
+            setMobileOpen(false);
         }
     };
 
-    const quickActions = React.useMemo(
-        () => [
-            {
-                title: 'Backend slice definieren',
-                description: `Fuer ${selectedItem.label.toLowerCase()} zuerst klare Service-Grenzen, DTOs und Endpunkte festziehen.`,
-                actionLabel: 'Planen'
-            },
-            {
-                title: 'UI-Modul andocken',
-                description: `Den Bereich ${activeView.toLowerCase()} als eigene Arbeitsmaske an dieselbe Shell haengen.`,
-                actionLabel: 'Oeffnen'
-            },
-            {
-                title: 'Rechte und Workflow beachten',
-                description: 'Auch der erste Backend-Schnitt sollte Rollen, Status und Publikationsregeln schon mitdenken.',
-                actionLabel: 'Pruefen'
-            }
-        ],
-        [selectedItem.label, activeView]
-    );
+    const handlePresetChange = (event) => {
+        setPreset(event.target.value);
+    };
 
-    const drawerContent = (
-        <Box sx={{ display: 'flex', height: '100%', flexDirection: 'column', bgcolor: '#3a3a3a', color: '#ffffff' }}>
-            <Box sx={{ px: 2, py: 2.25 }}>
-                <Box component="img" src={brandLogoSrc} alt="Nexum CMS" sx={{ display: 'block', width: '100%', maxWidth: 162 }} />
+    const sidebarContent = (
+        <Box
+            sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                color: (muiTheme) => muiTheme.palette.custom.shellSidebarText,
+                bgcolor: (muiTheme) => muiTheme.palette.custom.shellSidebar
+            }}
+        >
+            <Box sx={{ px: 2.25, py: 1.75 }}>
+                {logoLoadFailed ? (
+                    <Typography
+                        variant="h6"
+                        sx={{
+                            color: (muiTheme) => muiTheme.palette.custom.shellSidebarText,
+                            letterSpacing: '0.02em'
+                        }}
+                    >
+                        {dashboardBrand.name}
+                    </Typography>
+                ) : (
+                    <Box
+                        component="img"
+                        src={brandLogoSrc}
+                        alt="Nexum CMS"
+                        onError={() => setLogoLoadFailed(true)}
+                        sx={{
+                            display: 'block',
+                            width: '100%',
+                            maxWidth: 170,
+                            objectFit: 'contain'
+                        }}
+                    />
+                )}
+                <Typography variant="caption" sx={{ display: 'block', mt: 0.75, color: (muiTheme) => muiTheme.palette.custom.shellSidebarSubtle }}>
+                    {dashboardBrand.environmentLabel}
+                </Typography>
             </Box>
 
-            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
+            <Divider sx={{ borderColor: alpha(theme.palette.custom.shellSidebarSubtle, 0.3) }} />
 
-            <List disablePadding sx={{ py: 1.5 }}>
-                {navigationItems.map((item) => {
+            <List disablePadding sx={{ py: 1.25 }}>
+                {dashboardNavigation.map((item) => {
                     const selected = item.key === activeSection;
-
                     return (
-                        <ListItem key={item.key} disablePadding sx={{ display: 'block' }}>
+                        <ListItem key={item.key} disablePadding>
                             <ListItemButton
-                                onClick={() => handleSectionSelect(item.key)}
+                                component={RouterLink}
+                                to={buildSectionPath(item.key, dashboardViewsBySection[item.key]?.[0] ?? '')}
                                 selected={selected}
+                                onClick={handleSectionLinkClick}
                                 sx={{
-                                    gap: 1.5,
-                                    minHeight: 52,
-                                    px: 2,
-                                    color: 'inherit',
-                                    borderLeft: '4px solid',
-                                    borderLeftColor: selected ? '#2f9cff' : 'transparent',
-                                    bgcolor: selected ? '#2f2f2f' : 'transparent',
-                                    '&.Mui-selected': {
-                                        bgcolor: '#2f2f2f'
-                                    },
+                                    py: 1.25,
+                                    px: 1.75,
+                                    borderLeft: '3px solid',
+                                    borderLeftColor: selected ? 'primary.main' : 'transparent',
+                                    bgcolor: selected ? (muiTheme) => muiTheme.palette.custom.shellSidebarActive : 'transparent',
                                     '&:hover': {
-                                        bgcolor: '#333333'
+                                        bgcolor: (muiTheme) => muiTheme.palette.custom.shellSidebarHover
+                                    },
+                                    '&.Mui-selected:hover': {
+                                        bgcolor: (muiTheme) => muiTheme.palette.custom.shellSidebarActive
                                     }
                                 }}
                             >
-                                <Box sx={{ display: 'flex', width: 24, justifyContent: 'center' }}>
-                                    <NavGlyph variant={item.icon} active={selected} />
-                                </Box>
-                                <Typography variant="body2" sx={{ fontSize: 15, fontWeight: 500 }}>
-                                    {item.label}
-                                </Typography>
+                                <Stack direction="row" spacing={1.25} alignItems="center">
+                                    <Iconify icon={item.icon} sx={{ width: 18, height: 18 }} />
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            color: (muiTheme) => muiTheme.palette.custom.shellSidebarText,
+                                            fontWeight: selected ? 700 : 500
+                                        }}
+                                    >
+                                        {item.label}
+                                    </Typography>
+                                </Stack>
                             </ListItemButton>
-
-                            {selected && selectedViews.length > 0 ? (
-                                <Box sx={{ bgcolor: '#2f2f2f', pb: 1.25, pt: 0.25 }}>
-                                    {selectedViews.map((view) => {
-                                        const selectedView = view === activeView;
-
-                                        return (
-                                            <Button
-                                                key={view}
-                                                aria-current={selectedView ? 'page' : undefined}
-                                                fullWidth
-                                                onClick={() => handleViewSelect(view)}
-                                                sx={{
-                                                    justifyContent: 'flex-start',
-                                                    borderRadius: 0,
-                                                    px: 4.5,
-                                                    py: 0.75,
-                                                    color: selectedView ? '#52c1ff' : 'rgba(255, 255, 255, 0.72)',
-                                                    textTransform: 'none',
-                                                    fontSize: 13,
-                                                    fontWeight: selectedView ? 700 : 500,
-                                                    '&:hover': {
-                                                        bgcolor: 'transparent',
-                                                        color: '#8bd4ff'
-                                                    }
-                                                }}
-                                            >
-                                                {view}
-                                            </Button>
-                                        );
-                                    })}
-                                </Box>
-                            ) : null}
                         </ListItem>
                     );
                 })}
             </List>
 
-            <Box sx={{ mt: 'auto', px: 2, pb: 2.5, pt: 2 }}>
-                <Paper square elevation={0} sx={{ bgcolor: '#2e2e2e', color: '#ffffff', p: 1.5, border: '1px solid #4a4a4a' }}>
-                    <Stack direction="row" spacing={1.25} alignItems="center">
-                        <Box
-                            component="img"
-                            src={brandMarkSrc}
-                            alt="Nexum"
-                            sx={{ width: 32, height: 32, flexShrink: 0, bgcolor: '#ffffff', p: 0.25, borderRadius: 0.5 }}
-                        />
-                        <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                Editorial Core
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.64)' }}>
-                                Backend shell bereit
-                            </Typography>
-                        </Box>
+            {activeViews.length > 0 ? (
+                <Box sx={{ px: 1.5, pb: 2 }}>
+                    <Typography
+                        variant="overline"
+                        sx={{
+                            px: 1,
+                            color: (muiTheme) => muiTheme.palette.custom.shellSidebarSubtle,
+                            letterSpacing: '0.08em'
+                        }}
+                    >
+                        Views
+                    </Typography>
+                    <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                        {activeViews.map((view) => {
+                            const selected = view === activeView;
+                            return (
+                                <Button
+                                    key={view}
+                                    fullWidth
+                                    onClick={() => handleViewSelect(view)}
+                                    sx={{
+                                        justifyContent: 'flex-start',
+                                        color: selected
+                                            ? (muiTheme) => muiTheme.palette.custom.shellSidebarText
+                                            : (muiTheme) => muiTheme.palette.custom.shellSidebarSubtle,
+                                        bgcolor: selected ? (muiTheme) => muiTheme.palette.custom.shellSidebarActive : 'transparent',
+                                        '&:hover': {
+                                            bgcolor: (muiTheme) => muiTheme.palette.custom.shellSidebarHover
+                                        }
+                                    }}
+                                >
+                                    {view}
+                                </Button>
+                            );
+                        })}
+                    </Stack>
+                </Box>
+            ) : null}
+
+            <Box sx={{ mt: 'auto', p: 2 }}>
+                <Paper
+                    sx={{
+                        p: 1.5,
+                        borderColor: alpha(theme.palette.custom.shellSidebarSubtle, 0.3),
+                        bgcolor: alpha(theme.palette.custom.shellSidebarSubtle, 0.12)
+                    }}
+                >
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        {markLoadFailed ? (
+                            <Iconify icon="solar:shield-check-outline" sx={{ width: 20, height: 20 }} />
+                        ) : (
+                            <Box
+                                component="img"
+                                src={brandMarkSrc}
+                                alt="Nexum Mark"
+                                onError={() => setMarkLoadFailed(true)}
+                                sx={{ width: 24, height: 24, objectFit: 'contain' }}
+                            />
+                        )}
+                        <Typography
+                            variant="body2"
+                            sx={{
+                                color: (muiTheme) => muiTheme.palette.custom.shellSidebarText,
+                                fontWeight: 600
+                            }}
+                        >
+                            Enterprise Starter
+                        </Typography>
                     </Stack>
                 </Paper>
             </Box>
@@ -216,74 +304,128 @@ export default function Dashboard() {
     );
 
     return (
-        <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#ececec' }}>
+        <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
             <AppBar
                 position="fixed"
-                elevation={0}
+                color="transparent"
                 sx={{
-                    height: topbarHeight,
+                    height: dashboardTopbarHeight,
                     justifyContent: 'center',
-                    bgcolor: '#1f1f1f',
-                    borderBottom: '1px solid #0f0f0f',
-                    zIndex: theme.zIndex.drawer + 1
+                    bgcolor: (muiTheme) => muiTheme.palette.custom.shellTopbar,
+                    borderBottom: (muiTheme) => `1px solid ${muiTheme.palette.divider}`
                 }}
             >
-                <Toolbar sx={{ minHeight: `${topbarHeight}px !important`, px: { xs: 1, md: 0 } }}>
-                    <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center' }}>
-                        <MenuToggleButton ref={menuButtonRef} isOpen={mobileOpen} onClick={handleDrawerToggle} />
-                    </Box>
+                <Toolbar sx={{ minHeight: `${dashboardTopbarHeight}px !important`, px: { xs: 1.5, md: 2 } }}>
+                    <Button
+                        variant="text"
+                        onClick={handleDrawerToggle}
+                        aria-label="Toggle navigation menu"
+                        sx={{
+                            minWidth: 0,
+                            mr: 1,
+                            display: { xs: 'inline-flex', md: 'none' },
+                            color: (muiTheme) => muiTheme.palette.custom.shellTopbarText
+                        }}
+                    >
+                        <Iconify icon="solar:hamburger-menu-outline" sx={{ width: 20, height: 20 }} />
+                    </Button>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: { xs: 0.5, md: 1.5 } }}>
-                        <Box component="img" src={brandMarkSrc} alt="Nexum" sx={{ display: { xs: 'none', sm: 'block' }, width: 24, height: 24 }} />
-                        <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: '0.02em', color: 'common.white' }}>
-                            nexum CMS
+                    <Stack direction="row" alignItems="center" spacing={1.25}>
+                        <Typography
+                            variant="subtitle1"
+                            sx={{
+                                color: (muiTheme) => muiTheme.palette.custom.shellTopbarText,
+                                fontWeight: 700
+                            }}
+                        >
+                            {dashboardBrand.name}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: '#8ecbff' }}>
-                            beta
-                        </Typography>
-                    </Box>
+                        <Chip size="small" color="primary" label={`${mode} / ${preset}`} />
+                    </Stack>
 
                     <Box sx={{ flexGrow: 1 }} />
 
-                    <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'stretch', height: '100%' }}>
-                        {['Alerts', 'Inbox', 'Help', 'Setup'].map((label) => (
-                            <UtilityButton key={label} label={label} />
-                        ))}
-                    </Box>
-
                     <Box
                         sx={{
-                            ml: { xs: 1, md: 0 },
-                            mr: 1,
                             display: 'flex',
                             alignItems: 'center',
-                            width: { xs: 180, sm: 220 },
-                            height: 30,
-                            border: '1px solid #4e4e4e',
-                            bgcolor: '#ffffff'
+                            width: { xs: 170, sm: 220, lg: 260 },
+                            borderRadius: 2,
+                            px: 1,
+                            border: (muiTheme) => `1px solid ${muiTheme.palette.custom.searchBorder}`,
+                            bgcolor: (muiTheme) => muiTheme.palette.custom.searchBackground
                         }}
                     >
+                        <Iconify
+                            icon="solar:magnifier-outline"
+                            sx={{ width: 18, height: 18, color: (muiTheme) => muiTheme.palette.text.secondary }}
+                        />
                         <InputBase
-                            aria-label="Suchen"
-                            placeholder="Suchen"
+                            value={searchQuery}
+                            onChange={(event) => setSearchQuery(event.target.value)}
+                            placeholder="Search"
+                            inputProps={{ 'aria-label': 'Search dashboard' }}
                             sx={{
-                                flexGrow: 1,
-                                px: 1.25,
+                                py: 0.5,
+                                pl: 1,
+                                color: (muiTheme) => muiTheme.palette.text.primary,
                                 fontSize: 14,
-                                color: '#1f1f1f'
+                                width: '100%'
                             }}
                         />
-                        <Box sx={{ width: 34, display: 'flex', justifyContent: 'center' }} aria-hidden="true">
-                            <Box sx={{ position: 'relative', width: 14, height: 14 }}>
-                                <Box sx={{ position: 'absolute', inset: 0, border: '1.5px solid #1f1f1f', borderRadius: 99 }} />
-                                <Box sx={{ position: 'absolute', right: -1, bottom: -2, width: 6, height: 1.5, bgcolor: '#1f1f1f', transform: 'rotate(45deg)' }} />
-                            </Box>
-                        </Box>
                     </Box>
+
+                    <Stack direction="row" spacing={0.5} sx={{ ml: 1 }}>
+                        {dashboardTopActions.map((item) => (
+                            <Tooltip key={item.key} title={item.label}>
+                                <IconButton
+                                    size="small"
+                                    sx={{ color: (muiTheme) => muiTheme.palette.custom.shellTopbarText }}
+                                    aria-label={item.label}
+                                >
+                                    <Iconify icon={item.icon} sx={{ width: 19, height: 19 }} />
+                                </IconButton>
+                            </Tooltip>
+                        ))}
+                    </Stack>
+
+                    <FormControl size="small" sx={{ ml: 1.25, minWidth: 118 }}>
+                        <Select
+                            value={preset}
+                            onChange={handlePresetChange}
+                            sx={{
+                                height: 34,
+                                color: (muiTheme) => muiTheme.palette.custom.shellTopbarText,
+                                borderRadius: 1.5,
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                    borderColor: (muiTheme) => muiTheme.palette.custom.searchBorder
+                                },
+                                '& .MuiSvgIcon-root': {
+                                    color: (muiTheme) => muiTheme.palette.custom.shellTopbarText
+                                }
+                            }}
+                        >
+                            {presetOptions.map((option) => (
+                                <MenuItem key={option.key} value={option.key}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
+                    <Tooltip title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
+                        <IconButton
+                            onClick={toggleMode}
+                            sx={{ ml: 0.75, color: (muiTheme) => muiTheme.palette.custom.shellTopbarText }}
+                            aria-label="Toggle theme mode"
+                        >
+                            <Iconify icon={isDarkMode ? 'solar:sun-outline' : 'solar:moon-outline'} sx={{ width: 20, height: 20 }} />
+                        </IconButton>
+                    </Tooltip>
                 </Toolbar>
             </AppBar>
 
-            <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }} aria-label="CMS navigation">
+            <Box component="nav" sx={{ width: { md: dashboardDrawerWidth }, flexShrink: { md: 0 } }} aria-label="dashboard sections">
                 <Drawer
                     variant="temporary"
                     open={mobileOpen}
@@ -292,16 +434,14 @@ export default function Dashboard() {
                     sx={{
                         display: { xs: 'block', md: 'none' },
                         '& .MuiDrawer-paper': {
-                            width: drawerWidth,
-                            top: topbarHeight,
-                            height: `calc(100% - ${topbarHeight}px)`,
-                            borderRight: 'none',
-                            boxSizing: 'border-box',
-                            bgcolor: '#3a3a3a'
+                            width: dashboardDrawerWidth,
+                            top: dashboardTopbarHeight,
+                            height: `calc(100% - ${dashboardTopbarHeight}px)`,
+                            bgcolor: (muiTheme) => muiTheme.palette.custom.shellSidebar
                         }
                     }}
                 >
-                    {drawerContent}
+                    {sidebarContent}
                 </Drawer>
 
                 <Drawer
@@ -310,16 +450,14 @@ export default function Dashboard() {
                     sx={{
                         display: { xs: 'none', md: 'block' },
                         '& .MuiDrawer-paper': {
-                            width: drawerWidth,
-                            top: topbarHeight,
-                            height: `calc(100% - ${topbarHeight}px)`,
-                            borderRight: 'none',
-                            boxSizing: 'border-box',
-                            bgcolor: '#3a3a3a'
+                            width: dashboardDrawerWidth,
+                            top: dashboardTopbarHeight,
+                            height: `calc(100% - ${dashboardTopbarHeight}px)`,
+                            bgcolor: (muiTheme) => muiTheme.palette.custom.shellSidebar
                         }
                     }}
                 >
-                    {drawerContent}
+                    {sidebarContent}
                 </Drawer>
             </Box>
 
@@ -327,168 +465,120 @@ export default function Dashboard() {
                 component="main"
                 sx={{
                     flexGrow: 1,
-                    width: {
-                        md: `calc(100% - ${drawerWidth}px)`
-                    },
                     minWidth: 0,
-                    pt: `${topbarHeight}px`,
-                    bgcolor: '#ececec'
+                    pt: `${dashboardTopbarHeight + 16}px`,
+                    px: { xs: 2, md: 3 },
+                    pb: 3,
+                    width: { md: `calc(100% - ${dashboardDrawerWidth}px)` }
                 }}
             >
-                <Box sx={{ borderBottom: '1px solid #ababab', bgcolor: '#c9c9c9', px: { xs: 2, md: 2.5 }, py: 1 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: '0.04em', color: '#111111' }}>
-                        {selectedItem.label.toUpperCase()} / {activeView.toUpperCase()} (SPACE: EDITORIAL CORE)
-                    </Typography>
-                </Box>
-
-                <Box sx={{ p: { xs: 2, md: 3 }, display: 'grid', gap: 3 }}>
-                    <Paper
-                        square
-                        elevation={0}
-                        sx={{
-                            border: '1px solid #d2d2d2',
-                            bgcolor: '#ffffff',
-                            p: { xs: 2, md: 3 },
-                            display: 'grid',
-                            gap: 3,
-                            gridTemplateColumns: {
-                                xs: '1fr',
-                                xl: '1.15fr 0.95fr'
-                            }
-                        }}
+                <Stack spacing={3}>
+                    <StarterCard
+                        title={`${activeItem.label} / ${activeView}`}
+                        action={<Chip label="Editorial Core" color="primary" size="small" />}
                     >
-                        <Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 2.5 }}>
-                                <Box sx={{ width: 16, height: 16, borderRadius: 99, bgcolor: '#2f9cff' }} />
-                                <Typography variant="h4" sx={{ fontWeight: 400, color: '#111111' }}>
-                                    {selectedItem.label} workspace
-                                </Typography>
-                            </Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, maxWidth: 820 }}>
+                            {activeMeta.description}
+                        </Typography>
 
-                            <Typography variant="body1" sx={{ mb: 3, maxWidth: 760, color: '#5d5d5d', lineHeight: 1.8 }}>
-                                {sectionDescriptions[activeSection]}
-                            </Typography>
-
-                            <Stack spacing={2}>
-                                <DetailField label="Aktiver Space" value="Editorial Core" muted />
-                                <DetailField label="Aktuelle Ansicht" value={`${selectedItem.label} / ${activeView}`} muted />
-                                <DetailField label="UI Pattern" value="Responsive Drawer + AppBar + Kontextleiste" />
-                                <DetailField label="Brand assets" value="Nexum Logo und Monogramm aus /static/brand eingebunden" />
-                                <DetailField label="Naechster Backend Slice" value={nextBackendSlice[activeSection]} />
-                            </Stack>
-
-                            <Box sx={{ mt: 3.5, display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'flex-end' }}>
-                                <Button sx={{ color: '#111111', textTransform: 'none', fontWeight: 500 }}>Zuruecksetzen</Button>
-                                <Button
-                                    variant="contained"
-                                    sx={{
-                                        borderRadius: 0,
-                                        px: 2.25,
-                                        bgcolor: '#1f1f1f',
-                                        color: '#ffffff',
-                                        textTransform: 'none',
-                                        boxShadow: 'none',
-                                        '&:hover': {
-                                            bgcolor: '#111111',
-                                            boxShadow: 'none'
-                                        }
-                                    }}
-                                >
-                                    Workspace speichern
-                                </Button>
-                            </Box>
-
-                            <Box
-                                sx={{
-                                    mt: 3,
-                                    display: 'grid',
-                                    gap: 1.5,
-                                    gridTemplateColumns: {
-                                        xs: '1fr',
-                                        sm: 'repeat(3, 1fr)'
-                                    }
-                                }}
-                            >
-                                <MetricBox label="Offene Tasks" value="12" />
-                                <MetricBox label="Freigaben" value="07" />
-                                <MetricBox label="Module" value="04" />
-                            </Box>
-                        </Box>
-
-                        <Stack spacing={4}>
-                            {quickActions.map((item) => (
-                                <ActionRow
-                                    key={item.title}
-                                    title={item.title}
-                                    description={item.description}
-                                    actionLabel={item.actionLabel}
-                                />
-                            ))}
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
+                            <Button variant="contained" startIcon={<Iconify icon="solar:diskette-outline" sx={{ width: 18, height: 18 }} />}>
+                                Save workspace
+                            </Button>
+                            <Button variant="outlined" startIcon={<Iconify icon="solar:restart-outline" sx={{ width: 18, height: 18 }} />}>
+                                Reset selection
+                            </Button>
                         </Stack>
-                    </Paper>
+                    </StarterCard>
 
                     <Box
                         sx={{
                             display: 'grid',
-                            gap: 3,
+                            gap: 2,
                             gridTemplateColumns: {
                                 xs: '1fr',
-                                lg: '1fr 1fr'
+                                sm: 'repeat(3, minmax(0, 1fr))'
                             }
                         }}
                     >
-                        <Paper square elevation={0} sx={{ border: '1px solid #d2d2d2', bgcolor: '#ffffff', p: 2.5 }}>
-                            <Typography variant="h6" sx={{ mb: 2, fontWeight: 400, color: '#111111' }}>
-                                Letzte Aktivitaet
-                            </Typography>
+                        {dashboardStats.map((item) => (
+                            <Paper key={item.label} sx={{ p: 2, borderColor: 'divider', bgcolor: 'background.paper' }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase' }}>
+                                    {item.label}
+                                </Typography>
+                                <Typography variant="h5" sx={{ mt: 0.75 }}>
+                                    {item.value}
+                                </Typography>
+                            </Paper>
+                        ))}
+                    </Box>
+
+                    <Box
+                        sx={{
+                            display: 'grid',
+                            gap: 2,
+                            gridTemplateColumns: {
+                                xs: '1fr',
+                                xl: '1.1fr 0.9fr'
+                            }
+                        }}
+                    >
+                        <StarterCard title="Quick actions">
                             <Stack spacing={1.5}>
-                                {recentEvents.map((item) => (
-                                    <Box
+                                {dashboardQuickActions.map((item) => (
+                                    <Paper
                                         key={item.title}
                                         sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            gap: 1.5,
-                                            borderBottom: '1px solid #ececec',
-                                            pb: 1.25,
-                                            '&:last-of-type': {
-                                                borderBottom: 'none',
-                                                pb: 0
-                                            }
+                                            p: 1.5,
+                                            borderColor: 'divider',
+                                            bgcolor: (muiTheme) => muiTheme.palette.custom.panelMuted
                                         }}
                                     >
-                                        <Box>
-                                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#1f1f1f' }}>
+                                        <Stack direction="row" justifyContent="space-between" spacing={2} alignItems="flex-start">
+                                            <Box>
+                                                <Typography variant="subtitle2">{item.title}</Typography>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                                    {item.description}
+                                                </Typography>
+                                            </Box>
+                                            <Button
+                                                size="small"
+                                                variant="text"
+                                                endIcon={<Iconify icon="solar:arrow-right-outline" sx={{ width: 16, height: 16 }} />}
+                                            >
+                                                {item.actionLabel}
+                                            </Button>
+                                        </Stack>
+                                    </Paper>
+                                ))}
+                            </Stack>
+                        </StarterCard>
+
+                        <Stack spacing={2}>
+                            <StarterCard title="Recent activity">
+                                <Stack spacing={1.2}>
+                                    {dashboardRecentActivity.map((item) => (
+                                        <Box key={item.title}>
+                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                                 {item.title}
                                             </Typography>
-                                            <Typography variant="caption" sx={{ color: '#686868' }}>
+                                            <Typography variant="caption" color="text.secondary">
                                                 {item.detail}
                                             </Typography>
+                                            <Divider sx={{ mt: 1.2 }} />
                                         </Box>
-                                        <Button sx={{ color: '#111111', textTransform: 'none', fontWeight: 500 }}>Oeffnen</Button>
-                                    </Box>
-                                ))}
-                            </Stack>
-                        </Paper>
+                                    ))}
+                                </Stack>
+                            </StarterCard>
 
-                        <Paper square elevation={0} sx={{ border: '1px solid #d2d2d2', bgcolor: '#ffffff', p: 2.5 }}>
-                            <Typography variant="h6" sx={{ mb: 2, fontWeight: 400, color: '#111111' }}>
-                                Backend roadmap fuer diese Shell
-                            </Typography>
-                            <Stack spacing={1.75}>
-                                {moduleHighlights.map((item) => (
-                                    <Box key={item} sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
-                                        <Box sx={{ mt: 0.75, width: 10, height: 10, borderRadius: 99, bgcolor: '#2f9cff', flexShrink: 0 }} />
-                                        <Typography variant="body2" sx={{ color: '#4b4b4b', lineHeight: 1.7 }}>
-                                            {item}
-                                        </Typography>
-                                    </Box>
-                                ))}
-                            </Stack>
-                        </Paper>
+                            <StarterCard title="Next backend slice">
+                                <Typography variant="body2" color="text.secondary">
+                                    {activeMeta.nextSlice}
+                                </Typography>
+                            </StarterCard>
+                        </Stack>
                     </Box>
-                </Box>
+                </Stack>
             </Box>
         </Box>
     );
