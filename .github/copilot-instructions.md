@@ -55,6 +55,48 @@ Keep this boundary explicit:
 - Entities: persistence model only, not transport contracts.
 - DTOs/records: API and boundary contracts.
 
+### 4.1a Package Layout (MANDATORY)
+
+Use a FLAT, technical-layer package layout under `de.anatoli.nexumcms`. Do NOT introduce per-feature subpackages (no `de.anatoli.nexumcms.contenttype.*`, no `de.anatoli.nexumcms.user.*`, etc.). All features share the same top-level technical packages:
+
+- `de.anatoli.nexumcms.controllers` — `@RestController` / `@Controller` classes
+- `de.anatoli.nexumcms.services` — `@Service` classes (business logic, transactions)
+- `de.anatoli.nexumcms.repositories` — Spring Data repositories
+- `de.anatoli.nexumcms.models` — JPA entities and persistence-related enums
+- `de.anatoli.nexumcms.api` — request/response DTO records and shared API response types (e.g. `ApiErrorResponse`)
+- `de.anatoli.nexumcms.exceptions` — domain exception classes and global `@RestControllerAdvice` handlers
+- `de.anatoli.nexumcms.config` — `@Configuration` classes (security, beans, etc.)
+
+Rules:
+- One class per feature lives in the layer it belongs to. Example: `ContentTypeController` in `controllers/`, `ContentTypeService` in `services/`, `ContentType` in `models/`.
+- Do not create `feature/api`, `feature/domain`, `feature/contract`, `feature/dto` subpackages.
+- DTOs are Java `record`s and live in `api/`. Entities live in `models/`.
+
+### 4.1b Naming Rules (MANDATORY)
+
+- Entities must NOT carry an `Entity` suffix. Use `ContentType`, not `ContentTypeEntity`. Use `User`, not `UserEntity`.
+- Repositories: `<Entity>Repository` (e.g. `ContentTypeRepository`).
+- Services: `<Feature>Service` (e.g. `ContentTypeService`).
+- Controllers: `<Feature>Controller` (e.g. `ContentTypeController`).
+- Request DTOs: `<Feature><Action>Request` (e.g. `ContentTypeCreateRequest`).
+- Response DTOs: `<Feature>Response` / `<Feature>SummaryResponse`.
+- Exceptions: `<Feature><Reason>Exception` (e.g. `ContentTypeNotFoundException`).
+- Do not prefix private methods with `_`. Use plain camelCase (`normalizeKey`, not `_normalizeKey`).
+
+### 4.1c Lombok (MANDATORY)
+
+Lombok is on the classpath (`compileOnly` + `annotationProcessor` in `build.gradle`). Use it everywhere instead of writing boilerplate by hand.
+
+- Entities (`@Entity` classes):
+  - `@Getter @Setter @NoArgsConstructor` always (JPA needs no-args).
+  - `@AllArgsConstructor @Builder` when constructor/builder usage is reasonable.
+  - Do NOT use `@Data`, `@EqualsAndHashCode`, or `@ToString` on JPA entities (breaks equality and triggers lazy-loading bugs).
+- DTOs are `record`s — Lombok not needed.
+- Services / Controllers / `@Component` classes:
+  - `@RequiredArgsConstructor` for constructor injection of `final` fields. Do NOT write the constructor by hand.
+  - `@Slf4j` for logging instead of manual `LoggerFactory.getLogger(...)`.
+- Never write manual getters, setters, or trivial constructors when a Lombok annotation can generate them.
+
 ### 4.2 Dependency Injection
 
 - Use constructor injection for Spring-managed classes.

@@ -7,8 +7,8 @@ spring:
   datasource:
     url: jdbc:postgresql://${NEXUMCMS_DB_HOST:localhost}:${NEXUMCMS_DB_PORT:5432}/${NEXUMCMS_DB_NAME:nexumcms}?createDatabaseIfNotExist=true
     driver-class-name: org.postgresql.Driver
-    username: ${NEXUMCMS_DB_USERNAME:nexumcms}
-    password: ${NEXUMCMS_DB_PASSWORD}
+    username: ${NEXUMCMS_DB_USERNAME:postgres}
+    password: ${NEXUMCMS_DB_PASSWORD:root}
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:

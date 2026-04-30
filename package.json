@@ -22,11 +22,16 @@
     "@emotion/styled": "^11.14.1",
     "@iconify/react": "^6.0.2",
     "@mui/material": "^9.0.0",
+    "@xyflow/react": "^12.10.2",
     "babel-loader": "^10.1.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
     "webpack": "^5.98.0",
     "webpack-cli": "^7.0.2"
+  },
+  "devDependencies": {
+    "css-loader": "^7.1.4",
+    "style-loader": "^4.0.0"
   }
 }
